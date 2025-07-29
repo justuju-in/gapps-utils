@@ -1,11 +1,16 @@
-function logEvent(msg, logLevel = getConfig().logLevelError) {
-  if (logLevel >= getConfig().loggingLevel) {
-    if (getSheet(getConfig().logEventSheet) == null) {
-      insertNewTab(getConfig().logEventSheet);
-      addDataToSheet([["DATE", "LOG_LEVEL", "MESSAGE"]], getConfig().logEventSheet);
+const logSheetName = getConfig().logEventSheet;
+const LOG_LEVEL_DEBUG = getConfig().logLevelDebug;
+const LOG_LEVEL_ERROR = getConfig().logLevelError;
+const logging_level = getConfig().loggingLevel;
+
+function logEvent(msg, logLevel = LOG_LEVEL_ERROR) {
+  if (logLevel >= logging_level) {
+    if (getSheet(logSheetName) == null) {
+      insertNewTab(logSheetName);
+      addDataToSheet([["DATE", "LOG_LEVEL", "MESSAGE"]], logSheetName);
     }
-    let log_string = logLevel === getConfig().logLevelDebug ? "DEBUG" : "ERROR";
-    addDataToSheet([[new Date().toISOString(), log_string, msg]], getConfig().logEventSheet);
+    let log_string = logLevel === LOG_LEVEL_DEBUG ? "DEBUG" : "ERROR";
+    addDataToSheet([[new Date().toISOString(), log_string, msg]], logSheetName);
   }
 }
 

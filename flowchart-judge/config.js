@@ -16,6 +16,26 @@ var CONFIG = {
   logLevelDebug: 1,
   logLevelError: 2,
   loggingLevel: 2,
+  masterSheetColumns: [
+    'Timestamp',
+    'Email Address',
+    'Problem Number',
+    'Upload your Flowchart',
+    'Status',
+    'Generated Code',
+    'Submission ID',
+    'Verdict',
+    'Flag' // Added flag column for trigger control
+  ],
+  metaSheetColumns: [
+    'Problem Code',
+    'Problem ID'
+  ],
+  domjudgeSubmissionColumns: [
+    'Submission ID',
+    'Problem ID',
+    'Verdict'
+  ]
 };
 
 function getConfig() {

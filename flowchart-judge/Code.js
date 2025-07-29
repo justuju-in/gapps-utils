@@ -1,11 +1,11 @@
 const scriptProperties = PropertiesService.getScriptProperties();
-const GEMINI_API_KEY = scriptProperties.getProperty('GEM_API_KEY');
-const JUDGE_API_URL = 'https://judge.csbasics.in/api/v4';
+const GEMINI_API_KEY = scriptProperties.getProperty(getConfig().geminiApiKeyProperty);
+const JUDGE_API_URL = getConfig().domjudgeApiUrl;
 const IMAGE_URL_COLUMN = 'F';
 
-var domjudgeUrl = "https://judge.csbasics.in"; // Replace with your actual URL
-var domjudgeUser = "student01"; // From Settings.DOMJUDGE_USER
-var domjudgePass = "Ppassword@123"; // From Settings.DOMJUDGE_PASS
+var domjudgeUrl = getConfig().domjudgeApiUrl;
+var domjudgeUser = getConfig().domjudgeUser;
+var domjudgePass = getConfig().domjudgePass;
 
 
 function test() {
@@ -26,46 +26,81 @@ function onFormSubmit(e) {
     var row = e.range.getRow();
     var rowData = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
     var masterSheetName = getConfig().masterSheet;
-    var masterSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(masterSheetName);
-    if (!masterSheet) {
-      masterSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(masterSheetName);
-      masterSheet.appendRow(['Timestamp', 'Email Address', 'Problem Number', 'Upload your Flowchart', 'Status', 'Generated Code', 'Submission ID', 'Verdict']);
-    }
-    var timestamp = rowData[getColumnIndexByName(sheet, 'Timestamp') - 1];
-    var email = rowData[getColumnIndexByName(sheet, 'Email Address') - 1];
-    var problemCode = rowData[getColumnIndexByName(sheet, 'Problem Number') - 1];
-    var flowchartUrl = rowData[getColumnIndexByName(sheet, 'Upload your Flowchart') - 1];
+    var masterSheet = getOrCreateSheet(masterSheetName, getConfig().masterSheetColumns);
+    var timestamp = rowData[getColumnIndexByName(sheet, getConfig().masterSheetColumns[0]) - 1];
+    var email = rowData[getColumnIndexByName(sheet, getConfig().masterSheetColumns[1]) - 1];
+    var problemCode = rowData[getColumnIndexByName(sheet, getConfig().masterSheetColumns[2]) - 1];
+    var flowchartUrl = rowData[getColumnIndexByName(sheet, getConfig().masterSheetColumns[3]) - 1];
     var problemId = getProblemIdFromMeta(problemCode);
-    var newRow = [timestamp, email, problemCode, flowchartUrl, '', '', '', ''];
+    // Initial status value (e.g. 'NEW')
+    var newRow = [timestamp, email, problemCode, flowchartUrl, 'NEW', '', '', '', ''];
     masterSheet.appendRow(newRow);
-    var masterRow = masterSheet.getLastRow();
-    var code = '';
-    var status = 'not done';
-    var promptText = getPrompt();
-    var fileId = getFileIdFromUrl(flowchartUrl);
-    if (!fileId) {
-      logEvent("Invalid flowchart URL: " + flowchartUrl, getConfig().logLevelError);
-      masterSheet.getRange(masterRow, getColumnIndexByName(masterSheet, 'Status')).setValue('error');
-      return;
-    }
-    if (flowchartUrl) {
-      var gemResult = callGeminiWithDrivePDF(fileId, promptText, 0);
-      if (gemResult) {
-        code = gemResult;
-        status = 'done';
-      }
-    }
-    masterSheet.getRange(masterRow, getColumnIndexByName(masterSheet, 'Status')).setValue(status);
-    masterSheet.getRange(masterRow, getColumnIndexByName(masterSheet, 'Generated Code')).setValue(code);
-    if (code && problemId) {
-      var submissionId = getResultFromDomjudge(code, problemId);
-      masterSheet.getRange(masterRow, getColumnIndexByName(masterSheet, 'Submission ID')).setValue(submissionId);
-    }
   } catch (err) {
     logEvent("Error in onFormSubmit: " + err.message, getConfig().logLevelError);
   }
 }
 
+// Trigger: Process Gemini if status is 'NEW' and required columns are filled
+function triggerGeminiProcessing() {
+  var masterSheet = getOrCreateSheet(getConfig().masterSheet, getConfig().masterSheetColumns);
+  var data = masterSheet.getDataRange().getValues();
+  var statusCol = getColumnIndexByName(masterSheet, 'Status');
+  for (var i = 1; i < data.length; i++) {
+    var status = data[i][statusCol - 1];
+    var flowchartUrl = data[i][getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[3]) - 1];
+    if (status === 'NEW' && flowchartUrl) {
+      var promptText = getPrompt();
+      var fileId = getFileIdFromUrl(flowchartUrl);
+      var code = '';
+      var newStatus = 'GEMINI_DONE';
+      if (fileId) {
+        var gemResult = callGeminiWithDrivePDF(fileId, promptText, 0);
+        if (gemResult) {
+          code = gemResult;
+          newStatus = 'GEMINI_DONE';
+        }
+      }
+      masterSheet.getRange(i + 1, statusCol).setValue(newStatus);
+      masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[5])).setValue(code);
+    }
+  }
+}
+
+// Trigger: Process DomJudge if status is 'GEMINI_DONE' and code is present
+function triggerDomJudgeProcessing() {
+  var masterSheet = getOrCreateSheet(getConfig().masterSheet, getConfig().masterSheetColumns);
+  var data = masterSheet.getDataRange().getValues();
+  var statusCol = getColumnIndexByName(masterSheet, 'Status');
+  for (var i = 1; i < data.length; i++) {
+    var status = data[i][statusCol - 1];
+    var code = data[i][getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[5]) - 1];
+    var problemCode = data[i][getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[2]) - 1];
+    var problemId = getProblemIdFromMeta(problemCode);
+    if (status === 'GEMINI_DONE' && code && problemId) {
+      var submissionId = getResultFromDomjudge(code, problemId);
+      masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[6])).setValue(submissionId);
+      masterSheet.getRange(i + 1, statusCol).setValue('JUDGE_SUBMITTED');
+    }
+  }
+}
+
+// Trigger: Poll verdict if status is 'JUDGE_SUBMITTED' and submissionId is present
+function triggerVerdictPolling() {
+  var masterSheet = getOrCreateSheet(getConfig().masterSheet, getConfig().masterSheetColumns);
+  var data = masterSheet.getDataRange().getValues();
+  var statusCol = getColumnIndexByName(masterSheet, 'Status');
+  for (var i = 1; i < data.length; i++) {
+    var status = data[i][statusCol - 1];
+    var submissionId = data[i][getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[6]) - 1];
+    if (status === 'JUDGE_SUBMITTED' && submissionId) {
+      var result = pollJudgement(submissionId);
+      if (result && result.length > 0 && result[0].judgement_type_id) {
+        masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[7])).setValue(result[0].judgement_type_id);
+        masterSheet.getRange(i + 1, statusCol).setValue('VERDICT_READY');
+      }
+    }
+  }
+}
 
 function processAllUnprocessedRows() {
   // Select correct Sheet and data range
