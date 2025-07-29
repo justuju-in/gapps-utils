@@ -1,3 +1,16 @@
+// DomJudge admin credentials
+var domjudgeAdminUser = "shanti";
+var domjudgeAdminPass = "shanti@justuju.in";
+
+function getConfig() {
+  // ...existing code...
+  return {
+    // ...existing code...
+    domjudgeAdminUser: domjudgeAdminUser,
+    domjudgeAdminPass: domjudgeAdminPass,
+    // ...existing code...
+  };
+}
 // config.js - Centralized configuration for flowchart-judge
 // All configurable variables and sheet names
 
@@ -5,9 +18,9 @@ var CONFIG = {
   masterSheet: 'Master',
   logEventSheet: 'event-log',
   metaSheet: 'Meta',
-  geminiApiKeyProperty: 'GOOGLE_API_KEY',
+  geminiApiKeyProperty: 'GEMINI_API_KEY', // Fixed to match your script property name
   domjudgeApiUrl: 'https://judge.csbasics.in/api/v4',
-  domjudgeContestId: '1',
+  domjudgeContestId: '2',
   domjudgeTeamId: '5',
   domjudgeUser: 'Student01',
   domjudgePass: 'Ppassword@123',
@@ -24,8 +37,7 @@ var CONFIG = {
     'Status',
     'Generated Code',
     'Submission ID',
-    'Verdict',
-    'Flag' // Added flag column for trigger control
+    'Verdict'
   ],
   metaSheetColumns: [
     'Problem Code',

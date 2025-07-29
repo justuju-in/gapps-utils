@@ -1,4 +1,4 @@
-function getResultFromDomjudge(code, problemId) {
+function submitToDomjudge(code, problemId) {
   var cid = getConfig().domjudgeContestId;
   var languageId = "python3";
   var filename = "solution.py";
@@ -7,8 +7,12 @@ function getResultFromDomjudge(code, problemId) {
   var domjudgeUser = getConfig().domjudgeUser;
   var domjudgePass = getConfig().domjudgePass;
 
-  // Base64 encode the Python code directly (not zipped)
-  var encodedCode = Utilities.base64Encode(code);
+  // Create a blob for the code file
+  var codeBlob = Utilities.newBlob(code, 'text/x-python', filename);
+  // Zip the blob
+  var zipBlob = Utilities.zip([codeBlob], 'solution.zip');
+  // Base64 encode the zipped blob
+  var encodedZip = Utilities.base64Encode(zipBlob.getBytes());
 
   var url = domjudgeUrl + "/contests/" + cid + "/submissions";
 
@@ -18,8 +22,8 @@ function getResultFromDomjudge(code, problemId) {
     team_id: teamId,
     files: [
       {
-        filename: filename,
-        data: encodedCode,
+        filename: 'solution.zip',
+        data: encodedZip,
       },
     ],
   };
@@ -44,6 +48,8 @@ function getResultFromDomjudge(code, problemId) {
     if (code === 200 || code === 201) {
       var json = JSON.parse(response.getContentText());
       logEvent("Successfully submitted. Judge ID: " + json.id, getConfig().logLevelDebug);
+      console.log("Submission successful: " + JSON.stringify(json));
+      // Return the submission ID for further processing
       return json.id;
     } else {
       logEvent("DomJudge Error: " + code + " - " + response.getContentText(), getConfig().logLevelError);
