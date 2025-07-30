@@ -15,6 +15,9 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Evaluate Flowcharts")
     .addItem("Run on All Unprocessed Rows", "processAllUnprocessedRows")
+    .addItem("Process Gemini", "triggerGeminiProcessing")
+    .addItem("Process DomJudge", "triggerDomJudgeProcessing")
+    .addItem("Poll Verdict", "triggerVerdictPolling")
     .addToUi();
 }
 

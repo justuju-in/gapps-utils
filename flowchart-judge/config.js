@@ -1,16 +1,3 @@
-// DomJudge admin credentials
-var domjudgeAdminUser = "shanti";
-var domjudgeAdminPass = "shanti@justuju.in";
-
-function getConfig() {
-  // ...existing code...
-  return {
-    // ...existing code...
-    domjudgeAdminUser: domjudgeAdminUser,
-    domjudgeAdminPass: domjudgeAdminPass,
-    // ...existing code...
-  };
-}
 // config.js - Centralized configuration for flowchart-judge
 // All configurable variables and sheet names
 
@@ -29,6 +16,8 @@ var CONFIG = {
   logLevelDebug: 1,
   logLevelError: 2,
   loggingLevel: 2,
+  domjudgeAdminUser:"shanti",
+  domjudgeAdminPass:"shanti@justuju.in",
   masterSheetColumns: [
     'Timestamp',
     'Email Address',
