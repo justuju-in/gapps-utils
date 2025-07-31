@@ -3,7 +3,7 @@ function callGeminiWithDrivePDF(fileId, promptText, temperature = 0) {
   if (!GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not set in script properties.");
   }
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const endpoint = getConfig().geminiEndpoint + getConfig().geminiModel + `:generateContent?key=${GEMINI_API_KEY}`;
 
   const blob = DriveApp.getFileById(fileId).getBlob();
   const pdfBase64 = Utilities.base64Encode(blob.getBytes());

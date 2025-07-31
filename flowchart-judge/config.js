@@ -12,7 +12,7 @@ var CONFIG = {
   domjudgeUser: 'Student01',
   domjudgePass: 'Ppassword@123',
   geminiModel: 'gemini-2.5-flash',
-  geminiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  geminiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/',
   logLevelDebug: 1,
   logLevelError: 2,
   loggingLevel: 2,
