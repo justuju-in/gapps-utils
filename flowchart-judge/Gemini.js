@@ -6,7 +6,8 @@ function callGeminiWithDrivePDF(fileId, promptText, temperature = 0) {
   const endpoint = getConfig().geminiEndpoint + getConfig().geminiModel + `:generateContent?key=${GEMINI_API_KEY}`;
 
   const blob = DriveApp.getFileById(fileId).getBlob();
-  const pdfBase64 = Utilities.base64Encode(blob.getBytes());
+  const mimeType = blob.getContentType();
+  const fileBase64 = Utilities.base64Encode(blob.getBytes());
 
   const payload = {
     contents: [
@@ -14,8 +15,8 @@ function callGeminiWithDrivePDF(fileId, promptText, temperature = 0) {
         parts: [
           {
             inline_data: {
-              mime_type: 'application/pdf',
-              data: pdfBase64
+              mime_type: mimeType,
+              data: fileBase64
             }
           },
           {
