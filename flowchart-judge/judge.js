@@ -1,7 +1,7 @@
 function submitToDomjudge(code, problemId) {
   var cid = getConfig().domjudgeContestId;
-  var languageId = "python3";
-  var filename = "solution.py";
+  var languageId = getConfig().domjudgeLanguageId;
+  var filename = getConfig().domjudgeSolutionFilename;
   var teamId = getConfig().domjudgeTeamId;
   var domjudgeUrl = getConfig().domjudgeApiUrl;
   var domjudgeUser = getConfig().domjudgeUser;
@@ -10,7 +10,7 @@ function submitToDomjudge(code, problemId) {
   // Create a blob for the code file
   var codeBlob = Utilities.newBlob(code, 'text/x-python', filename);
   // Zip the blob
-  var zipBlob = Utilities.zip([codeBlob], 'solution.zip');
+  var zipBlob = Utilities.zip([codeBlob], getConfig().domjudgeZipFilename);
   // Base64 encode the zipped blob
   var encodedZip = Utilities.base64Encode(zipBlob.getBytes());
 
@@ -22,7 +22,7 @@ function submitToDomjudge(code, problemId) {
     team_id: teamId,
     files: [
       {
-        filename: 'solution.zip',
+        filename: getConfig().domjudgeZipFilename,
         data: encodedZip,
       },
     ],

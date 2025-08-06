@@ -7,9 +7,9 @@ function logEvent(msg, logLevel = LOG_LEVEL_ERROR) {
   if (logLevel >= logging_level) {
     if (getSheet(logSheetName) == null) {
       insertNewTab(logSheetName);
-      addDataToSheet([["DATE", "LOG_LEVEL", "MESSAGE"]], logSheetName);
+      addDataToSheet([[getConfig().logDateHeader, getConfig().logLevelHeader, getConfig().logMessageHeader]], logSheetName);
     }
-    let log_string = logLevel === LOG_LEVEL_DEBUG ? "DEBUG" : "ERROR";
+    let log_string = logLevel === LOG_LEVEL_DEBUG ? getConfig().logDebugString : getConfig().logErrorString;
     addDataToSheet([[new Date().toISOString(), log_string, msg]], logSheetName);
   }
 }

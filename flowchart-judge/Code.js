@@ -4,7 +4,6 @@ function test() {
   Logger.log("GEMINI_API_KEY: Config Key " + getConfig().geminiApiKeyProperty);
   const GEMINI_API_KEY = scriptProperties.getProperty(getConfig().geminiApiKeyProperty);
   const JUDGE_API_URL = getConfig().domjudgeApiUrl;
-  const IMAGE_URL_COLUMN = "F";
 
   var domjudgeUrl = getConfig().domjudgeApiUrl;
   var domjudgeUser = getConfig().domjudgeUser;
@@ -35,19 +34,19 @@ function onFormSubmit(e) {
     );
     var timestamp =
       rowData[
-        getColumnIndexByName(sheet, getConfig().masterSheetColumns[0]) - 1
+        getColumnIndexByName(sheet, getConfig().TimestampColumnName) - 1
       ];
     var email =
       rowData[
-        getColumnIndexByName(sheet, getConfig().masterSheetColumns[1]) - 1
+        getColumnIndexByName(sheet, getConfig().EmailAddressColumnName) - 1
       ];
     var problemCode =
       rowData[
-        getColumnIndexByName(sheet, getConfig().masterSheetColumns[2]) - 1
+        getColumnIndexByName(sheet, getConfig().ProblemNumberColumnName) - 1
       ];
     var flowchartUrl =
       rowData[
-        getColumnIndexByName(sheet, getConfig().masterSheetColumns[3]) - 1
+        getColumnIndexByName(sheet, getConfig().UploadFlowchartColumnName) - 1
       ];
     // Initial status value (e.g. 'NEW')
     var newRow = [
@@ -55,7 +54,7 @@ function onFormSubmit(e) {
       email,
       problemCode,
       flowchartUrl,
-      "NEW",
+      getConfig().NewEntryStatus,
       "",
       "",
       "",
@@ -77,32 +76,78 @@ function triggerGeminiProcessing() {
     getConfig().masterSheetColumns
   );
   var data = masterSheet.getDataRange().getValues();
-  var statusCol = getColumnIndexByName(masterSheet, "Status");
+  var statusCol = getColumnIndexByName(masterSheet, getConfig().StatusColumnName);
+  
   for (var i = 1; i < data.length; i++) {
     var status = data[i][statusCol - 1];
     var flowchartUrl =
       data[i][
-        getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[3]) - 1
+        getColumnIndexByName(masterSheet, getConfig().UploadFlowchartColumnName) - 1
       ];
-    if (status === "NEW" && flowchartUrl) {
+    
+    if (status === getConfig().NewEntryStatus && flowchartUrl) {
       var promptText = getPrompt();
       var fileId = getFileIdFromUrl(flowchartUrl);
       var code = "";
-      var newStatus = "GEMINI_DONE";
+      var newStatus = getConfig().GeminiDoneStatus;
+      var generationTimestamp = new Date();
+      
       if (fileId) {
-        var gemResult = callGeminiWithDrivePDF(fileId, promptText, 0);
-        if (gemResult) {
-          code = gemResult;
-          newStatus = "GEMINI_DONE";
+        var gemResult = callGeminiWithDrivePDF(fileId, promptText, getConfig().geminiTemperature);
+        if (gemResult && gemResult.content) {
+          code = cleanCodeBlock(gemResult.content);
+          newStatus = getConfig().GeminiDoneStatus;
+          
+          // Save code to Drive and get URL
+          var timestamp = data[i][getColumnIndexByName(masterSheet, getConfig().TimestampColumnName) - 1];
+          var email = data[i][getColumnIndexByName(masterSheet, getConfig().EmailAddressColumnName) - 1];
+          var problemCode = data[i][getColumnIndexByName(masterSheet, getConfig().ProblemNumberColumnName) - 1];
+          var problemId = getProblemIdFromMeta(problemCode.split(" ")[0]);
+          var codeFileUrl = saveCodeToDrive(timestamp, email, problemId, code);
+          
+          // Update all metadata columns
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().CodeFileUrlColumnName)).setValue(codeFileUrl);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ModelUsedColumnName)).setValue(getConfig().geminiModel);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().PromptVersionColumnName)).setValue(getConfig().promptVersion);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().GenerationTimestampColumnName)).setValue(generationTimestamp);
+          
+          // Save Gemini response metadata
+          if (gemResult.metadata) {
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().InputTokensColumnName)).setValue(gemResult.metadata.inputTokens);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().OutputTokensColumnName)).setValue(gemResult.metadata.outputTokens);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().TotalTokensColumnName)).setValue(gemResult.metadata.totalTokens);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ResponseTimeColumnName)).setValue(gemResult.metadata.responseTime);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().SafetyRatingsColumnName)).setValue(gemResult.metadata.safetyRatings);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().FinishReasonColumnName)).setValue(gemResult.metadata.finishReason);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().CitationMetadataColumnName)).setValue(gemResult.metadata.citationMetadata);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ModelVersionColumnName)).setValue(gemResult.metadata.modelVersion);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ResponseIdColumnName)).setValue(gemResult.metadata.responseId);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ThoughtsTokenCountColumnName)).setValue(gemResult.metadata.thoughtsTokenCount);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().TextTokenCountColumnName)).setValue(gemResult.metadata.textTokenCount);
+            masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ImageTokenCountColumnName)).setValue(gemResult.metadata.imageTokenCount);
+          }
+        } else if (gemResult) {
+          // Handle backward compatibility with old response format
+          code = cleanCodeBlock(gemResult);
+          newStatus = getConfig().GeminiDoneStatus;
+          
+          // Save code to Drive and get URL
+          var timestamp = data[i][getColumnIndexByName(masterSheet, getConfig().TimestampColumnName) - 1];
+          var email = data[i][getColumnIndexByName(masterSheet, getConfig().EmailAddressColumnName) - 1];
+          var problemCode = data[i][getColumnIndexByName(masterSheet, getConfig().ProblemNumberColumnName) - 1];
+          var problemId = getProblemIdFromMeta(problemCode.split(" ")[0]);
+          var codeFileUrl = saveCodeToDrive(timestamp, email, problemId, code);
+          
+          // Update basic metadata columns
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().CodeFileUrlColumnName)).setValue(codeFileUrl);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ModelUsedColumnName)).setValue(getConfig().geminiModel);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().PromptVersionColumnName)).setValue(getConfig().promptVersion);
+          masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().GenerationTimestampColumnName)).setValue(generationTimestamp);
         }
       }
+      
+      // Update status
       masterSheet.getRange(i + 1, statusCol).setValue(newStatus);
-      masterSheet
-        .getRange(
-          i + 1,
-          getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[5])
-        )
-        .setValue(code);
     }
   }
 }
@@ -114,28 +159,30 @@ function triggerDomJudgeProcessing() {
     getConfig().masterSheetColumns
   );
   var data = masterSheet.getDataRange().getValues();
-  var statusCol = getColumnIndexByName(masterSheet, "Status");
+  var statusCol = getColumnIndexByName(masterSheet, getConfig().StatusColumnName);
+  
   for (var i = 1; i < data.length; i++) {
     var status = data[i][statusCol - 1];
-    var code =
-      data[i][
-        getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[5]) - 1
-      ];
+    var codeFileUrl = data[i][getColumnIndexByName(masterSheet, getConfig().CodeFileUrlColumnName) - 1];
+    var code = codeFileUrl ? getCodeFromDriveUrl(codeFileUrl) : "";
     var problemCode =
       data[i][
-        getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[2]) - 1
+        getColumnIndexByName(masterSheet, getConfig().ProblemNumberColumnName) - 1
       ].split(" ")[0]; // Assuming problem code is the first part
     var problemId = getProblemIdFromMeta(problemCode);
-    if (status === "GEMINI_DONE" && code && problemId) {
+    
+    if (status === getConfig().GeminiDoneStatus && code && problemId) {
+      var submissionTimestamp = new Date();
       var submissionId = submitToDomjudge(code, problemId);
-      console.log("submission successful:"+submissionId)
-      masterSheet
-        .getRange(
-          i + 1,
-          getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[6])
-        )
-        .setValue(submissionId);
-      masterSheet.getRange(i + 1, statusCol).setValue("JUDGE_SUBMITTED");
+      console.log("submission successful:" + submissionId);
+      
+      if (submissionId) {
+        // Update submission metadata
+        masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().SubmissionIdColumnName)).setValue(submissionId);
+        masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().SubmissionTimestampColumnName)).setValue(submissionTimestamp);
+        masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().SubmissionStatusColumnName)).setValue(getConfig().SubmissionStatus);
+        masterSheet.getRange(i + 1, statusCol).setValue(getConfig().JudgeSubmittedStatus);
+      }
     }
     else{
       console.log("status: ",status);
@@ -152,23 +199,23 @@ function triggerVerdictPolling() {
     getConfig().masterSheetColumns
   );
   var data = masterSheet.getDataRange().getValues();
-  var statusCol = getColumnIndexByName(masterSheet, "Status");
+  var statusCol = getColumnIndexByName(masterSheet, getConfig().StatusColumnName);
   for (var i = 1; i < data.length; i++) {
     var status = data[i][statusCol - 1];
     var submissionId =
       data[i][
-        getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[6]) - 1
+        getColumnIndexByName(masterSheet, getConfig().SubmissionIdColumnName) - 1
       ];
-    if (status === "JUDGE_SUBMITTED" && submissionId) {
+    if (status === getConfig().JudgeSubmittedStatus && submissionId) {
       var result = pollJudgement(submissionId);
       if (result) {
         masterSheet
           .getRange(
             i + 1,
-            getColumnIndexByName(masterSheet, getConfig().masterSheetColumns[7])
+            getColumnIndexByName(masterSheet, getConfig().VerdictColumnName)
           )
           .setValue(result);
-        masterSheet.getRange(i + 1, statusCol).setValue("VERDICT_READY");
+        masterSheet.getRange(i + 1, statusCol).setValue(getConfig().VerdictReadyStatus);
       }
     }
   }
