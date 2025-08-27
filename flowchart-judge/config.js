@@ -2,6 +2,8 @@
 // All configurable variables and sheet names
 
 var CONFIG = {
+  GeminiQueuedStatus: "GEMINI_QUEUED",
+  BatchesFolderName: "GeminiBatches",
   SubmissionIdColumnName: "Submission ID",
   SubmissionTimestampColumnName: "Submission Timestamp",
   SubmissionStatusColumnName: "Submission Status",
@@ -48,7 +50,8 @@ var CONFIG = {
   geminiModel: "gemini-2.5-pro",
   geminiTemperature: 0,
   CannotProcessStatus: "CANNOT_PROCESS",
-  geminiEndpoint: "https://generativelanguage.googleapis.com/v1beta/models/",
+  // Use base endpoint for Gemini API (no /v1beta/models/)
+  geminiEndpoint: "https://generativelanguage.googleapis.com",
   // For batch: use geminiEndpoint + geminiModel + ':batchGenerateContent?key=' + API_KEY
   geminiBatchThreshold: 5, // Use batch mode if requests >= this number
   logLevelDebug: 1,
