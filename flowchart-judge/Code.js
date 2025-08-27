@@ -94,6 +94,9 @@ function triggerGeminiProcessing() {
       
       if (fileId) {
         var gemResult = callGeminiWithDrivePDF(fileId, promptText, getConfig().geminiTemperature);
+        // Capture and save the MIME type of the uploaded flowchart
+        const mimeType = getImageMimeType(fileId);
+        masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ImageMimeTypeColumnName)).setValue(mimeType);
         if (gemResult && gemResult.content) {
           code = cleanCodeBlock(gemResult.content);
           newStatus = getConfig().GeminiDoneStatus;
@@ -143,6 +146,7 @@ function triggerGeminiProcessing() {
           masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().ModelUsedColumnName)).setValue(getConfig().geminiModel);
           masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().PromptVersionColumnName)).setValue(getConfig().promptVersion);
           masterSheet.getRange(i + 1, getColumnIndexByName(masterSheet, getConfig().GenerationTimestampColumnName)).setValue(generationTimestamp);
+          
         }
       }
       

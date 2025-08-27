@@ -22,11 +22,12 @@ var CONFIG = {
   SafetyRatingsColumnName: "Safety Ratings",
   FinishReasonColumnName: "Finish Reason",
   CitationMetadataColumnName: "Citation Metadata",
-  ModelVersionColumnName: "Model Version",
+  ModelVersionColumnName: "Model Used",
   ResponseIdColumnName: "Response ID",
   ThoughtsTokenCountColumnName: "Thoughts Token Count",
   TextTokenCountColumnName: "Text Token Count",
   ImageTokenCountColumnName: "Image Token Count",
+  ImageMimeTypeColumnName: "Image MIME Type",
   promptVersion: "Production - 1st Aug 2025",
   // Status constants
   NewEntryStatus: "NEW",
