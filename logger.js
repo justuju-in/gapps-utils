@@ -14,17 +14,3 @@ function logEvent(msg, logLevel = LOG_LEVEL_ERROR) {
   }
 }
 
-function getSheet(sheetName) {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-}
-
-function insertNewTab(sheetName) {
-  SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
-}
-
-function addDataToSheet(data, sheetName) {
-  var sheet = getSheet(sheetName);
-  if (sheet) {
-    sheet.appendRow(data[0]);
-  }
-}

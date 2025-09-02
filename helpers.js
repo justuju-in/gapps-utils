@@ -1,56 +1,36 @@
-// Helper functions for the application
-// Save code to Drive and return file URL
-function saveCodeToDrive(timestamp, email, problemId, code) {
-  var safeTimestamp = String(timestamp).replace(/[\s:/]/g, "-");
-  var safeEmail = email.replace(/[@.]/g, "_");
-  var filename = `${safeTimestamp}_${safeEmail}_${problemId}${
-    getConfig().generatedCodeFileExtension
-  }`;
-  var folderName = getConfig().generatedCodesFolder;
-  try {
-    var folders = DriveApp.getFoldersByName(folderName);
-    var folder = folders.hasNext()
-      ? folders.next()
-      : DriveApp.createFolder(folderName);
-    var file = folder.createFile(filename, code, MimeType.PLAIN_TEXT);
-    logEvent(
-      `saveCodeToDrive: File saved. filename=${filename}, url=${file.getUrl()}`,
-      getConfig().logLevelDebug
-    );
-    return file.getUrl();
-  } catch (e) {
-    logEvent(`saveCodeToDrive error: ${e}`, getConfig().logLevelError);
-    throw e;
-  }
+/**
+ * This file contains general helper functions used across the application.
+ */
+
+/**
+ * Gets the header row from a sheet.
+ * @param {Sheet} sheet - The sheet to get headers from.
+ * @returns {Array} The header row as an array.
+ */
+function getSheetHeaders(sheet) {
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 }
 
-// Read code from Drive file URL
-function getCodeFromDriveUrl(fileUrl) {
-  var fileIdMatch = fileUrl.match(/[-\w]{25,}/);
-  if (!fileIdMatch) {
-    logEvent(
-      "getCodeFromDriveUrl: Invalid file URL: " + fileUrl,
-      getConfig().logLevelError
-    );
-    return null;
-  }
-  try {
-    var file = DriveApp.getFileById(fileIdMatch[0]);
-    var code = file.getBlob().getDataAsString();
-    logEvent(
-      "getCodeFromDriveUrl: Read code from fileId=" + fileIdMatch[0],
-      getConfig().logLevelDebug
-    );
-    return code;
-  } catch (e) {
-    logEvent("getCodeFromDriveUrl error: " + e, getConfig().logLevelError);
-    throw e;
-  }
+/**
+ * Finds the index of a value in an array.
+ * @param {Array} array - The array to search in.
+ * @param {*} value - The value to find.
+ * @returns {number} The zero-based index of the value, or -1 if not found.
+ */
+function findIndexInArray(array, value) {
+  return array.indexOf(value);
 }
-// Helper functions for spreadsheet and URL handling
+
+/**
+ * Gets the index of a column by its name in the header row.
+ * @param {Sheet} sheet - The sheet to search in.
+ * @param {string} name - The column name to find.
+ * @returns {number} The 1-based index of the column.
+ * @throws {Error} If the column is not found.
+ */
 function getColumnIndexByName(sheet, name) {
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var idx = headers.indexOf(name) + 1;
+  var headers = getSheetHeaders(sheet);
+  var idx = findIndexInArray(headers, name) + 1; // Convert to 1-based
   if (idx === 0) {
     logEvent(
       "getColumnIndexByName: Column not found: " + name,
@@ -61,49 +41,65 @@ function getColumnIndexByName(sheet, name) {
   return idx;
 }
 
-function getFileIdFromUrl(url) {
-  var regex = /[-\w]{25,}/;
-  var matches = url.match(regex);
-  if (matches) {
-    logEvent(
-      "getFileIdFromUrl: Extracted fileId=" + matches[0],
-      getConfig().logLevelDebug
-    );
-    return matches[0];
-  } else {
-    logEvent(
-      "getFileIdFromUrl: No fileId found in url: " + url,
-      getConfig().logLevelError
-    );
-    return null;
-  }
-}
-
-function getProblemIdFromMeta(problemCode) {
-  var metaSheetName = getConfig().metaSheet;
-  var metaSheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(metaSheetName);
-  if (!metaSheet) {
-    logEvent(
-      "getProblemIdFromMeta: Meta sheet not found",
-      getConfig().logLevelError
-    );
-    return null;
-  }
-  var data = metaSheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    // skip header
-    if (data[i][0] === problemCode) {
-      logEvent(
-        "getProblemIdFromMeta: Found problemId=" +
-          data[i][1] +
-          " for problemCode=" +
-          problemCode,
-        getConfig().logLevelDebug
-      );
-      return data[i][1]; // Column B: Problem id
+/**
+ * Finds a row in sheet data by matching a value in a specific column.
+ * @param {Array[]} data - The sheet data as a 2D array.
+ * @param {number} columnIndex - The zero-based index of the column to match.
+ * @param {*} value - The value to match.
+ * @returns {Object} Object with rowIndex and rowData, or null if not found.
+ */
+function findRowByColumnValue(data, columnIndex, value) {
+  for (var i = 1; i < data.length; i++) { // Skip header
+    if (data[i][columnIndex] === value) {
+      return {
+        rowIndex: i,
+        rowData: data[i]
+      };
     }
   }
+  return null;
+}
+
+/**
+ * Gets the meta sheet.
+ * @returns {Sheet|null} The meta sheet or null if not found.
+ */
+function getMetaSheet() {
+  var metaSheetName = getConfig().metaSheet;
+  var metaSheet = getSheet(metaSheetName);
+  if (!metaSheet) {
+    logEvent(
+      "getMetaSheet: Meta sheet not found",
+      getConfig().logLevelError
+    );
+    return null;
+  }
+  return metaSheet;
+}
+
+/**
+ * Gets a problem ID from the meta sheet based on problem code.
+ * @param {string} problemCode - The problem code to look up.
+ * @returns {string|null} The problem ID or null if not found.
+ */
+function getProblemIdFromMeta(problemCode) {
+  var metaSheet = getMetaSheet();
+  if (!metaSheet) return null;
+  
+  var data = getSheetData(metaSheet);
+  var result = findRowByColumnValue(data, 0, problemCode); // Column A: Problem code
+  
+  if (result) {
+    logEvent(
+      "getProblemIdFromMeta: Found problemId=" +
+        result.rowData[1] +
+        " for problemCode=" +
+        problemCode,
+      getConfig().logLevelDebug
+    );
+    return result.rowData[1]; // Column B: Problem id
+  }
+  
   logEvent(
     "getProblemIdFromMeta: Problem code " +
       problemCode +
@@ -113,33 +109,25 @@ function getProblemIdFromMeta(problemCode) {
   return null;
 }
 
+/**
+ * Extracts code block content using a regular expression.
+ * @param {string} text - The text containing code blocks.
+ * @param {RegExp} regex - The regular expression to use.
+ * @returns {string} The text with code blocks replaced.
+ */
+function extractCodeWithRegex(text, regex) {
+  return text.replace(regex, "$1");
+}
+
+/**
+ * Cleans code blocks from markdown-formatted text.
+ * @param {string} text - The text containing code blocks.
+ * @returns {string} The cleaned code.
+ */
 function cleanCodeBlock(text) {
   // This regex matches code between triple backticks, optionally with a language tag like "python"
   var regex = /```(?:\w+)?\n([\s\S]*?)```/g;
-
-  // Replace the entire match with just the captured group (the code inside)
-  var cleaned = text.replace(regex, "$1");
-
+  var cleaned = extractCodeWithRegex(text, regex);
   Logger.log(cleaned);
   return cleaned;
-}
-
-function getImageMimeType(fileId) {
-  try {
-    const file = DriveApp.getFileById(fileId);
-    const blob = file.getBlob();
-    const mimeType = blob.getContentType();
-    return mimeType;
-  } catch (error) {
-    Logger.log(
-      `Error fetching MIME type for fileId ${fileId}: ${error.message}`
-    );
-    return null;
-  }
-}
-
-// Helper to get or create a folder
-function getOrCreateFolder_(name) {
-  const iter = DriveApp.getFoldersByName(name);
-  return iter.hasNext() ? iter.next() : DriveApp.createFolder(name);
 }
