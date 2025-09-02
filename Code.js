@@ -13,9 +13,7 @@ function test() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Evaluate Flowcharts")
-  .addItem("Enqueue Gemini Batch (NEW rows)", "enqueueGeminiBatchFromSheet")
-  .addItem("Poll & Ingest Gemini Batch Results", "pollAndIngestBatchByManifestId")
-  .addItem("Process Gemini (legacy)", "triggerGeminiProcessing")
+  .addItem("Process Gemini", "triggerGeminiProcessing")
   .addItem("Process DomJudge", "triggerDomJudgeProcessing")
   .addItem("Poll Verdict", "triggerVerdictPolling")
   .addToUi();
