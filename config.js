@@ -83,7 +83,6 @@ var CONFIG = {
     "Submission Timestamp",
     "Submission Status",
     "Verdict",
-    "Processing Duration",
     "Input Tokens",
     "Output Tokens",
     "Total Tokens",
