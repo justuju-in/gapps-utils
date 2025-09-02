@@ -1,7 +1,6 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Evaluate Flowcharts")
-    .addItem("Run on All Unprocessed Rows", "processAllUnprocessedRows")
     .addItem("Process Gemini", "triggerGeminiProcessing")
     .addItem("Process DomJudge", "triggerDomJudgeProcessing")
     .addItem("Poll Verdict", "triggerVerdictPolling")
@@ -13,7 +12,7 @@ function onOpen() {
  * @param {Object} e - The form submission event.
  * @return {Object} - The extracted submission data.
  */
-function extractSubmissionData(e) {
+function extractSubmissionData(v) {
   var sheet = e.range.getSheet();
   var row = e.range.getRow();
   var rowData = getRowData(sheet, row);
@@ -113,13 +112,8 @@ function processFlowchartWithGemini(sheet, data, rowIndex) {
   var codeFileUrl = saveCodeToDrive(timestamp, email, problemId, code);
   var generationTimestamp = new Date();
   
-  // Save basic metadata
-  saveBasicMetadata(sheet, realRow, codeFileUrl, generationTimestamp);
-  
-  // Save extended metadata if available
-  if (gemResult.metadata) {
-    saveGeminiMetadata(sheet, realRow, gemResult.metadata);
-  }
+  // Save all metadata (basic and extended)
+  saveGeminiMetadata(sheet, realRow, codeFileUrl, generationTimestamp, gemResult.metadata);
   
   // Update status
   setCellValueByColumnName(sheet, realRow, getConfig().StatusColumnName, getConfig().GeminiDoneStatus);
@@ -128,46 +122,39 @@ function processFlowchartWithGemini(sheet, data, rowIndex) {
 }
 
 /**
- * Saves basic metadata about code generation.
+ * Saves all Gemini metadata (basic and detailed) to the sheet.
  * @param {Sheet} sheet - The sheet to update.
  * @param {number} row - The row number.
  * @param {string} codeFileUrl - URL to the generated code file.
  * @param {Date} timestamp - Generation timestamp.
+ * @param {Object} metadata - Metadata from Gemini API response (optional).
  */
-function saveBasicMetadata(sheet, row, codeFileUrl, timestamp) {
-  var metadata = {
+function saveGeminiMetadata(sheet, row, codeFileUrl, timestamp, metadata) {
+  // Basic metadata (always present)
+  var allMetadata = {
     [getConfig().CodeFileUrlColumnName]: codeFileUrl,
     [getConfig().ModelUsedColumnName]: getConfig().geminiModel,
     [getConfig().PromptVersionColumnName]: getConfig().promptVersion,
     [getConfig().GenerationTimestampColumnName]: timestamp
   };
   
-  updateMetadata(sheet, row, metadata);
-}
-
-/**
- * Saves detailed Gemini API response metadata.
- * @param {Sheet} sheet - The sheet to update.
- * @param {number} row - The row number.
- * @param {Object} metadata - Metadata from Gemini API response.
- */
-function saveGeminiMetadata(sheet, row, metadata) {
-  var geminiMetadata = {
-    [getConfig().InputTokensColumnName]: metadata.inputTokens,
-    [getConfig().OutputTokensColumnName]: metadata.outputTokens,
-    [getConfig().TotalTokensColumnName]: metadata.totalTokens,
-    [getConfig().ResponseTimeColumnName]: metadata.responseTime,
-    [getConfig().SafetyRatingsColumnName]: metadata.safetyRatings,
-    [getConfig().FinishReasonColumnName]: metadata.finishReason,
-    [getConfig().CitationMetadataColumnName]: metadata.citationMetadata,
-    [getConfig().ModelVersionColumnName]: metadata.modelVersion,
-    [getConfig().ResponseIdColumnName]: metadata.responseId,
-    [getConfig().ThoughtsTokenCountColumnName]: metadata.thoughtsTokenCount,
-    [getConfig().TextTokenCountColumnName]: metadata.textTokenCount,
-    [getConfig().ImageTokenCountColumnName]: metadata.imageTokenCount
-  };
+  // Add detailed Gemini API response metadata if available
+  if (metadata) {
+    allMetadata[getConfig().InputTokensColumnName] = metadata.inputTokens;
+    allMetadata[getConfig().OutputTokensColumnName] = metadata.outputTokens;
+    allMetadata[getConfig().TotalTokensColumnName] = metadata.totalTokens;
+    allMetadata[getConfig().ResponseTimeColumnName] = metadata.responseTime;
+    allMetadata[getConfig().SafetyRatingsColumnName] = metadata.safetyRatings;
+    allMetadata[getConfig().FinishReasonColumnName] = metadata.finishReason;
+    allMetadata[getConfig().CitationMetadataColumnName] = metadata.citationMetadata;
+    allMetadata[getConfig().ModelVersionColumnName] = metadata.modelVersion;
+    allMetadata[getConfig().ResponseIdColumnName] = metadata.responseId;
+    allMetadata[getConfig().ThoughtsTokenCountColumnName] = metadata.thoughtsTokenCount;
+    allMetadata[getConfig().TextTokenCountColumnName] = metadata.textTokenCount;
+    allMetadata[getConfig().ImageTokenCountColumnName] = metadata.imageTokenCount;
+  }
   
-  updateMetadata(sheet, row, geminiMetadata);
+  updateMetadata(sheet, row, allMetadata);
 }
 
 // Trigger: Process Gemini if status is 'NEW' and required columns are filled
